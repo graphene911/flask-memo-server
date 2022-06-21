@@ -78,7 +78,6 @@ class MemoListResource(Resource):
 
             query = '''select *
                     from memo
-                    where user_id = 
                     limit '''+offset+''' , '''+limit+''';'''
             
             # select 문은, dictionary = True 를 해준다.
