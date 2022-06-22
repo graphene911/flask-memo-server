@@ -22,35 +22,14 @@ class MemoUpdateResource(Resource) :
             #1. DB에 연결
             connection = get_connection()
 
-            # 먼저 memo_id에 들어있는 user_id가
-            # 이사람인지 먼저 확인한다.
-
-            query = '''select user_id
-                        from memo
-                        where id = %s'''
-
-            record = (memo_id, )
-
-            cursor = connection.cursor(dictionary = True)
-
-            cursor.execute(query, record)
-
-            result_list = cursor.fetchall()
-
-            memo = result_list[0]
-
-            if memo['user_id'] != user_id :
-                cursor.close()
-                connection.close()
-
-                return {'error' : '남의 레시피를 수정할 수 없습니다.'}, 401
-
             #2. 쿼리문 만들기
             query = '''update memo
-                    set title = %s, todo_date = %s, content = %s
-                    where id = %s ;'''
+                    set title = %s,
+                    todo_date = %s,
+                    content = %s
+                    where id = %s and user_id = %s;'''
 
-            record = ( data['title'], data['todo_date'], data['content'], memo_id )
+            record = ( data['title'], data['todo_date'], data['content'], memo_id, user_id )
 
             #3. 커서를 가져온다.
             cursor = connection.cursor()
@@ -86,34 +65,11 @@ class MemoUpdateResource(Resource) :
             #1. DB에 연결
             connection = get_connection()
 
-            # 먼저 memo_id에 들어있는 user_id가
-            # 이사람인지 먼저 확인한다.
-
-            query = '''select user_id
-                        from memo
-                        where id = %s'''
-
-            record = (memo_id, )
-
-            cursor = connection.cursor(dictionary = True)
-
-            cursor.execute(query, record)
-
-            result_list = cursor.fetchall()
-
-            memo = result_list[0]
-
-            if memo['user_id'] != user_id :
-                cursor.close()
-                connection.close()
-
-                return {'error' : '남의 레시피를 삭제할 수 없습니다.'}, 401
-
             #2. 쿼리문 만들기
             query = '''delete from memo
-                    where id = %s ;'''
+                    where id = %s and user_id = %s ;'''
 
-            record = (memo_id, )
+            record = (memo_id, user_id)
 
             #3. 커서를 가져온다.
             cursor = connection.cursor()
