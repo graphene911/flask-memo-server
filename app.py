@@ -2,7 +2,7 @@ from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_restful import Api
 from config import Config
-from resource.follow import FollowResource
+from resource.follow import FollowListResource, FollowResource
 from resource.memo import MemoListResource
 from resource.memo_update import MemoUpdateResource
 from resource.user import UserLoginResource, UserLogoutResource, UserRegisterResource, jwt_blacklist
@@ -32,6 +32,7 @@ api.add_resource(UserLogoutResource, '/users/logout')
 api.add_resource(MemoListResource, '/memo')
 api.add_resource(MemoUpdateResource, '/memo/<int:memo_id>')
 api.add_resource(FollowResource, '/follow/<int:follow_id>')
+api.add_resource(FollowListResource, '/follow')
 
 if __name__ == '__main__' :
     app.run()
