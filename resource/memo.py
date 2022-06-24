@@ -98,7 +98,7 @@ class MemoListResource(Resource):
             result_list = cursor.fetchall()
 
             print(result_list)
-
+            
             # 중요! 디비에서 가져온 timestamp 는 
             # 파이썬의 datetime 으로 자동 변경된다.
             # 문제는! 이데이터를 json 으로 바로 보낼수 없으므로,
@@ -124,3 +124,5 @@ class MemoListResource(Resource):
         return { "result" : "success" , 
                 "count" : len(result_list) ,
                 "items" : result_list }, 200
+
+                
