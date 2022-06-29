@@ -110,7 +110,7 @@ class FollowListResource(Resource) :
 
             print('1')
 
-            query = '''select m.title, m.date, m.content, m.user_id, 
+            query = '''select m.title, m.todo_date, m.content, m.user_id, 
                     m.created_at, m.updated_at, u.nickname
                     from memo m
                     join follow f
@@ -143,7 +143,7 @@ class FollowListResource(Resource) :
             # 문자열로 바꿔서 다시 저장해서 보낸다.
             i = 0
             for record in result_list :
-                result_list[i]['date'] = record['date'].isoformat()
+                result_list[i]['todo_date'] = record['todo_date'].isoformat()
                 result_list[i]['created_at'] = record['created_at'].isoformat()
                 result_list[i]['updated_at'] = record['updated_at'].isoformat()
                 i = i + 1                
