@@ -1,11 +1,12 @@
+import datetime
 from http import HTTPStatus
+from os import access
 from flask import request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, jwt_required
 from flask_restful import Resource
 from mysql.connector.errors import Error
 from mysql_connection import get_connection
 import mysql.connector
-
 
 class FollowResource(Resource) :
     @jwt_required()
@@ -95,31 +96,41 @@ class FollowResource(Resource) :
 class FollowListResource(Resource) :
     @jwt_required()
     def get(self) :
-        # 1. 클라이언트로부터 데이터를 받아온다
+        # 1. 클라이언트로부터 데이터 받아온다.
         offset = request.args['offset']
         limit = request.args['limit']
 
         user_id = get_jwt_identity()
-        # 2. DB에서 메모를 가져온다.
+
+        print(offset, limit, user_id)
+
+        # 2. 디비에서 메모 가져온다.
         try :
             connection = get_connection()
 
-            query = '''select u.nickname, m.title, m.todo_date, m.content,
-                    m.created_at, m.updated_at
+            print('1')
+
+            query = '''select m.title, m.date, m.content, m.user_id, 
+                    m.created_at, m.updated_at, u.nickname
                     from memo m
                     join follow f
-                    on m.user_id = f.followee_id
+                    on m.user_id = f.followee_id and follower_id = %s
                     join user u
-                    on u.id = f.followee_id
-                    where follower_id = %s
-                    limit '''+offset+''','''+limit+''';'''
+                    on m.user_id = u.id 
+                    limit '''+offset+''' , '''+limit+''';'''
             
-            record = (user_id, )
+            record = (user_id,)
+
+            print('2')
 
             # select 문은, dictionary = True 를 해준다.
             cursor = connection.cursor(dictionary = True)
 
+            print('3')
+
             cursor.execute(query, record)
+
+            print('4')
 
             # select 문은, 아래 함수를 이용해서, 데이터를 가져온다.
             result_list = cursor.fetchall()
@@ -132,7 +143,7 @@ class FollowListResource(Resource) :
             # 문자열로 바꿔서 다시 저장해서 보낸다.
             i = 0
             for record in result_list :
-                result_list[i]['todo_date'] = record['todo_date'].isoformat()
+                result_list[i]['date'] = record['date'].isoformat()
                 result_list[i]['created_at'] = record['created_at'].isoformat()
                 result_list[i]['updated_at'] = record['updated_at'].isoformat()
                 i = i + 1                
@@ -147,8 +158,8 @@ class FollowListResource(Resource) :
 
             return {"error" : str(e), 'error_no' : 20}, 503
 
+        return {'result' : 'success',
+                'count' : len(result_list) ,
+                'items' : result_list}, 200
 
-        return { "result" : "success" , 
-                "count" : len(result_list) ,
-                "items" : result_list }, 200
 

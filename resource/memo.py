@@ -1,33 +1,28 @@
+import datetime
 from http import HTTPStatus
+from os import access
 from flask import request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, jwt_required
 from flask_restful import Resource
 from mysql.connector.errors import Error
 from mysql_connection import get_connection
 import mysql.connector
 
-### API 를 만들기 위한 클래스 작성
-### class(클래스) 란??  변수와 함수로 구성된 묶음!
-### 클래스는 상속이 가능하다!
-### API를 만들기 위한 클래스는, flask_restful 라이브러리의
-### Resource 클래스를 상속해서 만들어야 한다.
-
-class MemoListResource(Resource):
-    # restful api 의 method 에 해당하는 함수 작성
-    # jwt_required = api를 호출하려면 header부분에 Authorization key값이 없으면 처리를 하지 않는다.
+class MemoListResource(Resource) :
     @jwt_required()
     def post(self) :
-        # api 실행 코드를 여기에 작성
 
-        # 클라이언트에서, body 부분에 작성한 json 을
-        # 받아오는 코드
+        # 1. 클라이언트로부터 데이터 받아온다. 
+        # {
+        #     "title": "커피",
+        #     "date": "2022-07-01 11:00",
+        #     "content": "커피마시면서 개발"
+        # }
+
         data = request.get_json()
-
-        # 암호화 한 token을 다시 보이게하는 코드
         user_id = get_jwt_identity()
 
-
-        # 받아온 데이터를 디비 저장하면 된다.
+        # 2. 메모를 데이터베이스에 저장
         try :
             # 데이터 insert 
             # 1. DB에 연결
@@ -35,11 +30,12 @@ class MemoListResource(Resource):
 
             # 2. 쿼리문 만들기
             query = '''insert into memo
-                    ( title, todo_date, content, user_id )
+                    (title, date, content, user_id)
                     values
-                    ( %s , %s , %s, %s );'''
+                    (%s , %s , %s, %s);'''
             
-            record = (data['title'], data['todo_date'], data['content'], user_id )
+            record = (data['title'], data['date'], 
+                    data['content'], user_id  )
 
             # 3. 커서를 가져온다.
             cursor = connection.cursor()
@@ -60,25 +56,21 @@ class MemoListResource(Resource):
             connection.close()
             return {"error" : str(e)}, 503
 
-        return {"result" : "success"}, 200
-
+        return {'result' : 'success'}, 200
 
     @jwt_required()
     def get(self) :
-        # 쿼리 스트링으로 오는 데이터는 아래처럼 처리해준다.
-        # request.args는 딕셔너리다
-
-        # request.arg 코드작성 방식1
+        # 1. 클라이언트로부터 데이터를 받아온다.
+        # request.args 는 딕셔너리다.
+        # offset = request.args['offset']
         # offset = request.args.get('offset')
-        # limit = request.args.get('limit')
 
-        # request.arg 코드작성 방식2
         offset = request.args['offset']
         limit = request.args['limit']
 
         user_id = get_jwt_identity()
 
-        # 디비로부터 데이터를 받아서, 클라이언트에 보내준다.
+        # 2. 디비로부터 내 메모를 가져온다.
         try :
             connection = get_connection()
 
@@ -87,7 +79,7 @@ class MemoListResource(Resource):
                     where user_id = %s
                     limit '''+offset+''' , '''+limit+''';'''
             
-            record = (user_id, )
+            record = (user_id,)
 
             # select 문은, dictionary = True 를 해준다.
             cursor = connection.cursor(dictionary = True)
@@ -98,14 +90,14 @@ class MemoListResource(Resource):
             result_list = cursor.fetchall()
 
             print(result_list)
-            
+
             # 중요! 디비에서 가져온 timestamp 는 
             # 파이썬의 datetime 으로 자동 변경된다.
             # 문제는! 이데이터를 json 으로 바로 보낼수 없으므로,
             # 문자열로 바꿔서 다시 저장해서 보낸다.
             i = 0
             for record in result_list :
-                result_list[i]['todo_date'] = record['todo_date'].isoformat()
+                result_list[i]['date'] = record['date'].isoformat()
                 result_list[i]['created_at'] = record['created_at'].isoformat()
                 result_list[i]['updated_at'] = record['updated_at'].isoformat()
                 i = i + 1                
@@ -119,10 +111,104 @@ class MemoListResource(Resource):
             connection.close()
 
             return {"error" : str(e), 'error_no' : 20}, 503
+        
+        return {'result' : 'success' ,
+                'count' : len(result_list) ,
+                'items' : result_list }, 200
 
 
-        return { "result" : "success" , 
-                "count" : len(result_list) ,
-                "items" : result_list }, 200
 
-                
+class MemoInfoResource(Resource) :
+
+    @jwt_required()
+    def put(self, memo_id):
+        # 1. 클라이언트로부터 데이터를 받아온다.
+        # {
+        #     "title": "점심먹자",
+        #     "date": "2022-07-10 14:00",
+        #     "content": "짜장면"
+        # }
+        data = request.get_json()
+        user_id = get_jwt_identity()
+
+        # 2. 디비 업데이트
+        try :
+            # 데이터 업데이트 
+            # 1. DB에 연결
+            connection = get_connection()
+
+            # 2. 쿼리문 만들기
+            query = '''update memo
+                        set title = %s, 
+                        date = %s,
+                        content = %s
+                        where id = %s and user_id = %s;'''
+            
+            record = (data['title'] , data['date'],
+                        data['content'] ,
+                        memo_id, user_id )
+
+            # 3. 커서를 가져온다.
+            cursor = connection.cursor()
+
+            # 4. 쿼리문을 커서를 이용해서 실행한다.
+            cursor.execute(query, record)
+
+            # 5. 커넥션을 커밋해줘야 한다 => 디비에 영구적으로 반영하라는 뜻
+            connection.commit()
+
+            # 6. 자원 해제
+            cursor.close()
+            connection.close()
+
+        except mysql.connector.Error as e :
+            print(e)
+            cursor.close()
+            connection.close()
+            return {'error' : str(e)}, 503
+
+
+        return {'result' : 'success'}, 200
+
+    @jwt_required()
+    def delete(self, memo_id) :
+        # 1. 클라이언트로부터 데이터를 받아온다.
+
+        user_id = get_jwt_identity()
+
+        # 2. 디비로부터 메모를 삭제한다.
+
+        try :
+            # 데이터 삭제
+            # 1. DB에 연결
+            connection = get_connection()
+
+            # 2. 쿼리문 만들기
+            query = '''delete from memo
+                        where id = %s and user_id = %s;'''
+            
+            record = ( memo_id, user_id )
+
+            # 3. 커서를 가져온다.
+            cursor = connection.cursor()
+
+            # 4. 쿼리문을 커서를 이용해서 실행한다.
+            cursor.execute(query, record)
+
+            # 5. 커넥션을 커밋해줘야 한다 => 디비에 영구적으로 반영하라는 뜻
+            connection.commit()
+
+            # 6. 자원 해제
+            cursor.close()
+            connection.close()
+
+        except mysql.connector.Error as e :
+            print(e)
+            cursor.close()
+            connection.close()
+            return {'error' : str(e)}, 503
+
+
+        return {'result' : 'success'}, 200
+
+
